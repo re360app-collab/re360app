@@ -1,0 +1,112 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>RE360 Concierge — Conversations</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    body{font-family:system-ui,Segoe UI,Roboto,Arial;margin:0;background:#f6f7f9}
+    header{padding:16px 20px;background:#0f172a;color:#fff;display:flex;align-items:center;justify-content:space-between}
+    .wrap{padding:20px;max-width:1200px;margin:0 auto}
+    .toolbar{display:flex;gap:12px;margin-bottom:12px}
+    input,select,button{padding:8px 10px;border:1px solid #d1d5db;border-radius:8px}
+    table{width:100%;border-collapse:separate;border-spacing:0;background:#fff;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden}
+    th,td{padding:10px 12px;border-bottom:1px solid #f1f5f9;font-size:14px}
+    tr:last-child td{border-bottom:0}
+    .status{padding:4px 8px;border-radius:999px;font-size:12px}
+    .open{background:#eef2ff;color:#3730a3}
+    .escalated{background:#fff7ed;color:#9a3412}
+    .closed{background:#f1f5f9;color:#334155}
+    a{color:#2563eb;text-decoration:none}
+    a:hover{text-decoration:underline}
+  </style>
+</head>
+<body>
+  <header>
+    <div><strong>RE360 Concierge</strong> — Conversations</div>
+    <div>
+      <a href="/conversations.html" style="color:#fff;margin-right:16px">Conversations</a>
+    </div>
+  </header>
+
+  <div class="wrap">
+    <div class="toolbar">
+      <input id="q" placeholder="Search phone or name..." />
+      <select id="filter">
+        <option value="">All</option>
+        <option value="open">Open</option>
+        <option value="escalated">Escalated</option>
+        <option value="closed">Closed</option>
+      </select>
+      <button id="refresh">Refresh</button>
+    </div>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Phone</th>
+          <th>Name</th>
+          <th>Loan Officer</th>
+          <th>Status</th>
+          <th>Last Message</th>
+          <th>When</th>
+        </tr>
+      </thead>
+      <tbody id="rows"></tbody>
+    </table>
+  </div>
+
+  <script type="module">
+    import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+    const SUPABASE_URL = "https://jbyqjcljczfdugqjprsu.supabase.co";
+    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpieXFqY2xqY3pmZHVncWpwcnN1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3MjQxNDQ0NzYsImV4cCI6MTczOTcwNjA3Nn0.1234567890123456789012345678901234567890";
+    window.sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    const $rows = document.getElementById('rows');
+    const $q = document.getElementById('q');
+    const $filter = document.getElementById('filter');
+    const $refresh = document.getElementById('refresh');
+
+    async function load() {
+      let { data, error } = await window.sb.from('v_sms_conversations')
+        .select('*')
+        .order('last_message_at', { ascending: false });
+      if (error) { alert(error.message); return; }
+
+      const q = $q.value.trim().toLowerCase();
+      const f = $filter.value;
+
+      if (q) {
+        data = data.filter(r =>
+          (r.phone || '').toLowerCase().includes(q) ||
+          `${r.first_name || ''} ${r.last_name || ''}`.toLowerCase().includes(q)
+        );
+      }
+      if (f) data = data.filter(r => (r.status || 'open') === f);
+
+      $rows.innerHTML = data.map(r => {
+        const name = `${r.first_name || ''} ${r.last_name || ''}`.trim();
+        const statusClass = r.status || 'open';
+        const when = r.last_message_at ? new Date(r.last_message_at).toLocaleString() : '';
+        const last = (r.last_message_body || '').slice(0, 80);
+        return `
+          <tr>
+            <td><a href="/conversation.html?phone=${encodeURIComponent(r.phone)}">${r.phone}</a></td>
+            <td>${name || ''}</td>
+            <td>${r.loan_officer_name || 'Unassigned'}</td>
+            <td><span class="status ${statusClass}">${r.status || 'open'}</span></td>
+            <td>${last}</td>
+            <td>${when}</td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    $refresh.onclick = load;
+    $q.oninput = () => load();
+    $filter.onchange = () => load();
+
+    load();
+  </script>
+</body>
+</html>

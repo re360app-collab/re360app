@@ -1,0 +1,194 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>RE360 Concierge — Conversation</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    body{font-family:system-ui,Segoe UI,Roboto,Arial;margin:0;background:#f6f7f9}
+    header{padding:16px 20px;background:#0f172a;color:#fff;display:flex;align-items:center;justify-content:space-between}
+    .wrap{padding:20px;max-width:1100px;margin:0 auto;display:grid;grid-template-columns:1fr 340px;gap:18px}
+    .card{background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:16px}
+    .thread{max-height:70vh;overflow:auto}
+    .bubble{margin:10px 0;padding:10px 12px;border-radius:12px;max-width:75%}
+    .in{background:#eef2ff;color:#1e3a8a;align-self:flex-start}
+    .out{background:#ecfdf5;color:#065f46;align-self:flex-end;margin-left:auto}
+    label{display:block;margin-top:8px;font-size:12px;color:#334155}
+    input,select,textarea,button{width:100%;padding:8px 10px;border:1px solid #d1d5db;border-radius:8px;font-size:14px}
+    textarea{min-height:100px}
+    .row{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+    .actions button{margin-top:8px}
+    .muted{color:#64748b;font-size:12px}
+  </style>
+</head>
+<body>
+  <header>
+    <div><a href="./conversations.html" style="color:#fff;text-decoration:none">← Back</a> &nbsp; RE360 Concierge — Conversation</div>
+  </header>
+
+  <div class="wrap">
+    <!-- Left column -->
+    <div class="card">
+      <div id="meta" class="muted"></div>
+      <div id="thread" class="thread"></div>
+    </div>
+
+    <!-- Right column -->
+    <div class="card">
+      <div class="row">
+        <div>
+          <label>First name</label>
+          <input id="first_name" />
+        </div>
+        <div>
+          <label>Last name</label>
+          <input id="last_name" />
+        </div>
+      </div>
+
+      <label style="margin-top:12px">Assigned Loan Officer</label>
+      <select id="lo"></select>
+
+      <label style="margin-top:12px">Status</label>
+      <select id="status">
+        <option>open</option>
+        <option>escalated</option>
+        <option>closed</option>
+      </select>
+
+      <label style="margin-top:12px">Tags (comma separated)</label>
+      <input id="tags" placeholder="trialrun, vip" />
+
+      <div class="actions">
+        <label style="margin-top:12px">Reply as Human (SMS)</label>
+        <textarea id="reply" placeholder="Type your message…"></textarea>
+        <button id="send">Send</button>
+
+        <label style="margin-top:12px">Escalate (notify LO by SMS)</label>
+        <textarea id="note" placeholder="Why are we escalating?"></textarea>
+        <button id="escalate">Escalate</button>
+
+        <button id="save" style="margin-top:12px">Save Contact & Status</button>
+      </div>
+
+      <div id="summary" class="muted" style="margin-top:12px"></div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+    const SUPABASE_URL = "https://wpoqhxrhcqehnwvfnffj.supabase.co";
+    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Indwb3FoeHJoY3FlaG53dmZuZmZqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MjI0MzQ0MDgsImV4cCI6MjAzODAwMDQwOH0.q_z9aA4Z2f_pAsgVw2p_N2i-i5a_xJz3j_2a_Gq_u-s";
+    window.sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    const params = new URLSearchParams(location.search);
+    const phone = params.get('phone');
+    const sb = window.sb;
+    const $thread = document.getElementById('thread');
+    const $meta = document.getElementById('meta');
+    const $first = document.getElementById('first_name');
+    const $last = document.getElementById('last_name');
+    const $lo = document.getElementById('lo');
+    const $status = document.getElementById('status');
+    const $tags = document.getElementById('tags');
+    const $reply = document.getElementById('reply');
+    const $send = document.getElementById('send');
+    const $note = document.getElementById('note');
+    const $escalate = document.getElementById('escalate');
+    const $save = document.getElementById('save');
+    const $summary = document.getElementById('summary');
+
+    async function loadLOs(selectedId) {
+      const { data, error } = await sb.from('loan_officers')
+        .select('id,name')
+        .eq('active', true)
+        .order('name');
+      if (error) { console.error(error); }
+      $lo.innerHTML =
+        `<option value="">Unassigned</option>` +
+        (data || []).map(lo =>
+          `<option value="${lo.id}" ${selectedId===lo.id?'selected':''}>${lo.name}</option>`
+        ).join('');
+    }
+
+    async function load() {
+      if (!phone) { alert('Missing phone'); return; }
+
+      // Messages
+      let { data: msgs, error: msgErr } = await sb.from('sms_messages')
+        .select('*')
+        .eq('phone', phone)
+        .order('created_at', { ascending: true });
+      if (msgErr) { console.error(msgErr); msgs = []; }
+
+      $thread.innerHTML = (msgs || []).map(m => `
+        <div class="bubble ${m.direction === 'in' ? 'in' : 'out'}">
+          <div>${(m.body || '').replace(/</g,'&lt;')}</div>
+          <div class="muted">
+            ${new Date(m.created_at).toLocaleString()} —
+            ${m.direction === 'out' && m.model !== 'human' ? 'RE360 Concierge' : (m.model === 'human' ? 'Human' : 'Client')}
+          </div>
+        </div>
+      `).join('');
+
+      // Contact + conversation
+      const { data: contact } = await sb.from('contacts').select('*').eq('phone', phone).maybeSingle();
+      const { data: convo } = await sb.from('sms_conversations').select('*').eq('phone', phone).maybeSingle();
+
+      $meta.textContent = `Phone: ${phone}`;
+      $first.value = contact?.first_name || '';
+      $last.value  = contact?.last_name  || '';
+      $tags.value  = (contact?.tags || []).join(', ');
+      $status.value = convo?.status || 'open';
+      $summary.textContent = 'Summary: ' + (convo?.last_agent_summary || '(none)');
+
+      await loadLOs(contact?.assigned_loan_officer_id || '');
+    }
+
+    $save.onclick = async () => {
+      const assigned = $lo.value || null;
+      const tags = $tags.value.split(',').map(s => s.trim()).filter(Boolean);
+      await sb.from('contacts').upsert({
+        phone,
+        first_name: $first.value.trim(),
+        last_name:  $last.value.trim(),
+        assigned_loan_officer_id: assigned,
+        tags
+      });
+      await sb.from('sms_conversations').upsert({ phone, status: $status.value });
+      alert('Saved');
+      await load();
+    };
+
+    $send.onclick = async () => {
+      const body = $reply.value.trim();
+      if (!body) return;
+      const fnUrl = `https://wpoqhxrhcqehnwvfnffj.functions.supabase.co/send-sms`;
+      try {
+        const res = await fetch(fnUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ to: phone, body })
+        });
+        const j = await res.json();
+        if (!j.ok) { alert('Failed: ' + JSON.stringify(j.error || j)); return; }
+        $reply.value = '';
+        await load();
+      } catch (e) {
+        console.error(e);
+        alert('Network error sending SMS');
+      }
+    };
+
+    $escalate.onclick = async () => {
+      const note = $note.value.trim();
+      await sb.from('escalations').insert({ phone, type: 'sms', note });
+      await sb.from('sms_conversations').upsert({ phone, status: 'escalated' });
+      alert('Escalated');
+      await load();
+    };
+
+    load();
+  </script>
+</body>
+</html>
