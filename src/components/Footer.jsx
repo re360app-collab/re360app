@@ -7,6 +7,11 @@ const Footer = ({ variant = 'light' }) => {
     <footer className={`${isLight ? 'bg-gray-50 border-t border-gray-200' : 'bg-white/5 backdrop-blur-sm border-t border-white/10'} py-6 mt-auto`}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center">
+          {/* New tagline */}
+          <p className={`text-sm font-medium mb-4 ${isLight ? 'text-gray-700' : 'text-white/80'}`}>
+            With RE360 you earn on purchases, refinances, and more — new tools launching soon.
+          </p>
+
           <p className={`text-xs ${isLight ? 'text-gray-500' : 'text-white/60'} leading-relaxed max-w-6xl mx-auto`}>
             Nationwide Mortgage Bankers, Inc. (NMB), going by NMB Home Loans, Inc. in the states of AL, AZ, GA, IL, IA, KS, LA, MN, MT, ND, OK, PA, SC, SD, TX, WV and as NMB Home Loans in KY and MA | NMLS# 819382 (
             <a 

@@ -1,9 +1,8 @@
-import React from 'react';
 import { Routes, Route, useLocation } from 'react-router-dom';
 import { AnimatePresence } from 'framer-motion';
 import { Toaster } from '@/components/ui/toaster';
 
-import LandingPage from '@/components/LandingPage';
+import LandingPage from '@/components/NewLandingPage';
 import InvitePage from '@/components/InvitePage';
 import FeaturesPage from '@/components/FeaturesPage';
 import PricingPage from '@/components/PricingPage';
@@ -20,6 +19,9 @@ import PublicRoute from '@/components/auth/PublicRoute';
 import ProtectedRoute from '@/components/auth/ProtectedRoute';
 import CatchAllRedirect from '@/components/CatchAllRedirect';
 import TokenRegistrationPage from '@/pages/TokenRegistrationPage';
+import CampaignLandingPageSMS from '@/components/CampaignLandingPageSMS';
+
+
 
 import DashboardHome from '@/components/dashboard/DashboardHome';
 import QualifyBuyers from '@/components/dashboard/QualifyBuyers';
@@ -48,11 +50,17 @@ import MyRealtorLeads from '@/components/dashboard/lo/MyRealtorLeads';
 import ConversationsPage from '@/pages/admin/ConversationsPage';
 import ConversationDetailPage from '@/pages/admin/ConversationDetailPage';
 
+
+
+// ✅ Real DemoPage (in src/pages/DemoPage.jsx)
+import DemoPage from '@/pages/DemoPage';
+
 const AppRoutes = () => {
   const location = useLocation();
   return (
     <AnimatePresence mode="wait">
       <Routes location={location} key={location.pathname}>
+        {/* Public-facing routes */}
         <Route path="/" element={<LandingPage />} />
         <Route path="/invite" element={<InvitePage />} />
         <Route path="/features" element={<FeaturesPage />} />
@@ -60,13 +68,19 @@ const AppRoutes = () => {
         <Route path="/success-stories" element={<SuccessStoriesPage />} />
         <Route path="/vote" element={<VotePage />} />
         <Route path="/privacy-policy" element={<PrivacyPolicy />} />
+        <Route path="/sms-campaign" element={<CampaignLandingPageSMS />} />
         <Route path="/terms-of-service" element={<TermsOfService />} />
-        
+        <Route path="/demo" element={<DemoPage />} />
+
+
+
+        {/* Auth routes */}
         <Route path="/auth" element={<PublicRoute><LoginPage /></PublicRoute>} />
         <Route path="/register" element={<PublicRoute><RegisterPage /></PublicRoute>} />
         <Route path="/update-password" element={<UpdatePasswordPage />} />
         <Route path="/r" element={<TokenRegistrationPage />} />
 
+        {/* Dashboard routes (protected) */}
         <Route path="/dashboard" element={<ProtectedRoute><DashboardLayout /></ProtectedRoute>}>
           <Route index element={<DashboardHome />} />
           <Route path="qualify-buyers" element={<QualifyBuyers />} />
@@ -79,6 +93,7 @@ const AppRoutes = () => {
           <Route path="profile" element={<Profile />} />
         </Route>
 
+        {/* Admin routes (protected, admin only) */}
         <Route path="/admin" element={<ProtectedRoute adminOnly={true}><DashboardLayout /></ProtectedRoute>}>
           <Route index element={<AdminDashboard />} />
           <Route path="inbox" element={<AdminInbox />} />
@@ -97,6 +112,7 @@ const AppRoutes = () => {
           <Route path="profile" element={<Profile />} />
         </Route>
         
+        {/* Catch-all redirect */}
         <Route path="*" element={<CatchAllRedirect />} />
       </Routes>
     </AnimatePresence>
